@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.27.2/axios.js"></script>
+    <title>multer</title>
+</head>
+<body>
+    
+    <form method="post" enctype="multipart/form-data" action="/upload" name="testForm">
+        <input type="text" name="Name">
+        <input type="text" name="Data">
+        <input type="date" name="BirthDay">
+        <input type="email" name="Email">
+        <button type="submit">send</button>
+        </form>
+    <script>
+        const formEl = document.forms.testForm;
+        formEl.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            
+            const formdata = new FormData(ev.target);
+            
+            const { data } = await axios.post('/test', formdata);
+        });
+
+        // setTimeout(async() => {
+        //     await axios.post('/test', {bio: {name: 'Yevhen', surname: 22}});
+        // }, 1000);
+
+    </script>
+</body>
+</html>
