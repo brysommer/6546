@@ -3,11 +3,9 @@ const server = express();
 const Web3 = require('web3');
 const fs = require('fs/promises');
 const format = require('node.date-time');
-const USDTABI = require('./USDTABI');
-const USDCABI = require('./USDCABI');
-const LPTABI = require('./LPTABI');
-const SAIABI = require('./SAIABI');
-const IDKABI = require('./IDKABI');
+const axios = require('axios');
+const {parse, stringify, toJSON, fromJSON} = require('flatted');
+const { count } = require('console');
 
 server.set('view engine', 'ejs');
 server.set('views', './views');
@@ -25,61 +23,74 @@ web3.eth.getBalance('0xA145ac099E3d2e9781C9c848249E2e6b256b030D').then(balance =
   //return ether
 });
 
+const minABI = [
+  // balanceOf
+  {
+    "constant":true,
+    "inputs":[{"name":"_owner","type":"address"}],
+    "name":"balanceOf",
+    "outputs":[{"name":"balance","type":"uint256"}],
+    "type":"function"
+  },
+  // decimals
+  {
+    "constant":true,
+    "inputs":[],
+    "name":"decimals",
+    "outputs":[{"name":"","type":"uint8"}],
+    "type":"function"
+  }
+];
+
+server.use('/api', (req, res) => {
+  
+   const getData = async () => {
+    let count = 0;
+    try {
+      const response = await axios.get('https://api.coingecko.com/api/v3/coins/list?include_platform=true');
+
+   //   response.forEah(element => {
+    //    count = +1;
+  //    })
+      console.log(response);
+      console.log(Array.isArray(response));
+      myArray = JSON.parse(JSON.stringify(response));
+      console.log(Array.isArray(myArray));
 
 
+    } catch (error) {
+      console.error(error);
+    };
+
+    console.log(count);
+
+  };
+  getData();
+
+});
 
 const USDC = async () => {
-  const contract = new web3.eth.Contract(USDCABI, '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48');
+  const contract = new web3.eth.Contract(minABI, '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48');
   const walletAddress = '0xA145ac099E3d2e9781C9c848249E2e6b256b030D';
-  contract.defaultAccount = walletAddress;
+ // contract.defaultAccount = walletAddress;
   const balance = await contract.methods.balanceOf(walletAddress).call();
-  balanceDecimals = balance/100000000000000;
+  balanceDecimals = balance;
   console.log('USDC Balance: ' + balanceDecimals);
+  
+// Call balanceOf function
+// contract.methods.balanceOf(walletAddress, ( balance) => {
+  // Get decimals
+  const getDecimals = await contract.methods.decimals().call();
+  const currentBalance = balance/(10**getDecimals);
+  console.log(currentBalance);
 };
-// USDC();
-
- const USDT = async () => {
-  const contractUSDT = new web3.eth.Contract(USDTABI, '0xdAC17F958D2ee523a2206206994597C13D831ec7');
-  const walletAddress = '0xA145ac099E3d2e9781C9c848249E2e6b256b030D';
-  contractUSDT.defaultAccount = walletAddress;
-  const balanceUSDT = await contractUSDT.methods.balanceOf(walletAddress).call();
-  balanceDecimals = balanceUSDT/1000000;
-  console.log('USDT Balance: ' + balanceDecimals);
-};
- USDT();
-
-const LPT = async () => {
-  const contract = new web3.eth.Contract(LPTABI, '0x58b6A8A3302369DAEc383334672404Ee733aB239');
-  const walletAddress = '0xA145ac099E3d2e9781C9c848249E2e6b256b030D';
-  contract.defaultAccount = walletAddress;
-  const balance = await contract.methods.balanceOf(walletAddress).call();
-  balanceDecimals = balance/1000000000000000000;
-  console.log('LPT Balance: ' + balanceDecimals);
-};
-LPT();
+ USDC();
 
 
-const SAI = async () => {
-  const contract = new web3.eth.Contract(SAIABI, '0x58b6A8A3302369DAEc383334672404Ee733aB239');
-  const walletAddress = '0xA145ac099E3d2e9781C9c848249E2e6b256b030D';
-  contract.defaultAccount = walletAddress;
-  const balance = await contract.methods.balanceOf(walletAddress).call();
-  balanceDecimals = balance/1000000000000000000;
-  console.log('SAI Balance: ' + balanceDecimals);
-};
-SAI();
 
 
-const IDK = async () => {
-  const contract = new web3.eth.Contract(IDKABI, '0x61fd1c62551850D0c04C76FcE614cBCeD0094498');
-  const walletAddress = '0xA145ac099E3d2e9781C9c848249E2e6b256b030D';
-  contract.defaultAccount = walletAddress;
-// console.log(contract.methods.balanceOf(walletAddress));
- // const balance = await contract.methods.balanceOf(walletAddress).call();
- // balanceDecimals = balance/1000000000;
-//  console.log('IDK Balance: ' + balanceDecimals);
-};
-IDK();
+
+
 
 
 function logTime(){
