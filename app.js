@@ -1,4 +1,6 @@
 const express = require('express');
+const { createServer } = require("http");
+const { Server } = require("socket.io");
 const server = express();
 const Web3 = require('web3');
 const fs = require('fs/promises');
@@ -7,15 +9,68 @@ const axios = require('axios');
 const {parse, stringify, toJSON, fromJSON} = require('flatted');
 const { count } = require('console');
 const minABI = require('./minABI');
+const httpServer = createServer(server);
+const io = new Server(httpServer, { /* options */ });
+
 
 server.set('view engine', 'ejs');
 server.set('views', './views');
 
-const provider = new Web3.providers.HttpProvider('https://mainnet.infura.io/v3/40c57167dfff47c38c99a2945b579dd7');
+const provider = new Web3.providers.WebsocketProvider('wss://mainnet.infura.io/ws/v3/40c57167dfff47c38c99a2945b579dd7');
 const walletAddress = '0xA145ac099E3d2e9781C9c848249E2e6b256b030D';
 // Get ERC20 Token contract instance
 
 const web3 = new Web3(provider);
+provider.on('connect', init);
+provider.on('error', e => console.log('WS Error', e));
+provider.on('end', e => {
+  console.log(e);
+  console.log('WS closed');
+});
+async function init() {
+  console.log('websocket connection esteblisheds')
+  const date = new Date();
+  const minutesstart = date.getMinutes()
+  console.log(minutesstart)
+  const tokenAdressesJson = await fs.readFile('ERC20tokenadresses.json','utf8');
+  const tokenData = JSON.parse(tokenAdressesJson);
+  let tokensList = [];
+  let tokenspromises = []
+  for (let token of tokenData) {
+    
+    const contract = new web3.eth.Contract(minABI, token.eth);
+    const tokePromise =  contract.methods.balanceOf(walletAddress).call();
+    tokenspromises.push(tokePromise);
+    /*try {
+      const tokenBalance =  contract.methods.balanceOf(walletAddress).call();
+      console.log(`${token.name} balance: ` + tokenBalance)
+    if (tokenBalance != 0) {
+      console.log(tokenBalance);
+      const tokenObj = {
+        name: token.name,
+        balance: tokenBalance,
+      }
+      tokensList.push(tokenObj);
+    }
+    } catch (error) {
+      console.log(error)
+    }*/
+  }
+  
+  const filetreted = tokenspromises.filter((element, index) => index < 999 );
+  console.log('Promises:' + filetreted.length);
+  Promise.all(filetreted)
+  .then(response => fs.writeFile('res.json', JSON.stringify(response))
+    
+  );
+
+   console.log(tokensList)
+   const minutesEnd = date.getMinutes();
+   console.log(minutesEnd)
+   const timer = minutesEnd - minutesstart
+   console.log('Job finished in : ' + timer);
+}
+
 //Get tokens addresses
 server.use('/api', async (req, res) => {
     try {
@@ -38,6 +93,21 @@ server.use('/api', async (req, res) => {
       res.send(JSON.stringify('APi erroe'))
     };
 });
+server.get('/promises', async (req, res) => {
+  const tokenAdressesJson = await fs.readFile('ERC20tokenadresses.json','utf8');
+  const tokenData = JSON.parse(tokenAdressesJson);
+  let tokensList = [];
+  
+  
+  // перетворює кожну URL-адресу в проміс, що повертається fetch
+  let requests = tokensData.map(url => fetch(url));
+  
+  // Promise.all буде очікувати виконання всіх промісів
+  Promise.all(requests)
+    .then(responses => responses.forEach(
+      response => alert(`${response.url}: ${response.status}`)
+    ));
+})
 //get tokens balances
 server.get('/tokens', async (req, res) => {
     const tokenAdressesJson = await fs.readFile('ERC20tokenadresses.json','utf8');
