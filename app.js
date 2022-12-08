@@ -1,6 +1,4 @@
 const express = require('express');
-const { createServer } = require("http");
-const { Server } = require("socket.io");
 const server = express();
 const Web3 = require('web3');
 const fs = require('fs/promises');
@@ -9,18 +7,17 @@ const axios = require('axios');
 const {parse, stringify, toJSON, fromJSON} = require('flatted');
 const { count } = require('console');
 const minABI = require('./minABI');
-const httpServer = createServer(server);
-const io = new Server(httpServer, { /* options */ });
 
 
 server.set('view engine', 'ejs');
 server.set('views', './views');
 
-const provider = new Web3.providers.WebsocketProvider('wss://mainnet.infura.io/ws/v3/40c57167dfff47c38c99a2945b579dd7');
+const provider = new Web3.providers.HttpProvider('https://mainnet.infura.io/v3/40c57167dfff47c38c99a2945b579dd7');
 const walletAddress = '0xA145ac099E3d2e9781C9c848249E2e6b256b030D';
 // Get ERC20 Token contract instance
 
 const web3 = new Web3(provider);
+/*
 provider.on('connect', init);
 provider.on('error', e => console.log('WS Error', e));
 provider.on('end', e => {
@@ -54,7 +51,7 @@ async function init() {
     }
     } catch (error) {
       console.log(error)
-    }*/
+    }
   }
   
   const filetreted = tokenspromises.filter((element, index) => index < 999 );
@@ -70,7 +67,7 @@ async function init() {
    const timer = minutesEnd - minutesstart
    console.log('Job finished in : ' + timer);
 }
-
+*/
 //Get tokens addresses
 server.use('/api', async (req, res) => {
     try {
@@ -96,17 +93,37 @@ server.use('/api', async (req, res) => {
 server.get('/promises', async (req, res) => {
   const tokenAdressesJson = await fs.readFile('ERC20tokenadresses.json','utf8');
   const tokenData = JSON.parse(tokenAdressesJson);
+  let chunkLenght = 50; 
   let tokensList = [];
-  
-  
-  // перетворює кожну URL-адресу в проміс, що повертається fetch
-  let requests = tokensData.map(url => fetch(url));
-  
-  // Promise.all буде очікувати виконання всіх промісів
-  Promise.all(requests)
-    .then(responses => responses.forEach(
-      response => alert(`${response.url}: ${response.status}`)
-    ));
+  logs = [];
+  for  (let i=0; i < tokenData.length; i+=chunkLenght) {
+    console.log('i:' + i)
+    console.log('chunck lenght' + chunkLenght)
+    let chunk = tokenData.slice(i, i + chunkLenght);
+    console.log('довжина запиту :' + chunk.length);
+    
+    let tokenspromises = []
+    for (let token of chunk) {    
+      const contract = new web3.eth.Contract(minABI, token.eth);
+      const tokePromise =  contract.methods.balanceOf(walletAddress).call();
+      tokenspromises.push(tokePromise);
+    }
+    const filterZeroBalances = (response) => {
+      if (response.status == 'fulfilled') {
+        if (response.value != 0) {
+          tokensList.push(response)
+        }
+      }
+    }
+    // Promise.all буде очікувати виконання всіх промісів
+    await Promise.allSettled(tokenspromises)
+      .then(responses =>
+        responses.forEach(
+          response => filterZeroBalances(response))
+        )
+    }
+    
+    console.log(tokensList)
 })
 //get tokens balances
 server.get('/tokens', async (req, res) => {
