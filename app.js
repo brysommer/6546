@@ -8,7 +8,7 @@ const {parse, stringify, toJSON, fromJSON} = require('flatted');
 const { count } = require('console');
 const minABI = require('./minABI');
 
-
+let blockNumber = 11633038;
 server.set('view engine', 'ejs');
 server.set('views', './views');
 
@@ -17,57 +17,7 @@ const walletAddress = '0xA145ac099E3d2e9781C9c848249E2e6b256b030D';
 // Get ERC20 Token contract instance
 
 const web3 = new Web3(provider);
-/*
-provider.on('connect', init);
-provider.on('error', e => console.log('WS Error', e));
-provider.on('end', e => {
-  console.log(e);
-  console.log('WS closed');
-});
-async function init() {
-  console.log('websocket connection esteblisheds')
-  const date = new Date();
-  const minutesstart = date.getMinutes()
-  console.log(minutesstart)
-  const tokenAdressesJson = await fs.readFile('ERC20tokenadresses.json','utf8');
-  const tokenData = JSON.parse(tokenAdressesJson);
-  let tokensList = [];
-  let tokenspromises = []
-  for (let token of tokenData) {
-    
-    const contract = new web3.eth.Contract(minABI, token.eth);
-    const tokePromise =  contract.methods.balanceOf(walletAddress).call();
-    tokenspromises.push(tokePromise);
-    /*try {
-      const tokenBalance =  contract.methods.balanceOf(walletAddress).call();
-      console.log(`${token.name} balance: ` + tokenBalance)
-    if (tokenBalance != 0) {
-      console.log(tokenBalance);
-      const tokenObj = {
-        name: token.name,
-        balance: tokenBalance,
-      }
-      tokensList.push(tokenObj);
-    }
-    } catch (error) {
-      console.log(error)
-    }
-  }
-  
-  const filetreted = tokenspromises.filter((element, index) => index < 999 );
-  console.log('Promises:' + filetreted.length);
-  Promise.all(filetreted)
-  .then(response => fs.writeFile('res.json', JSON.stringify(response))
-    
-  );
 
-   console.log(tokensList)
-   const minutesEnd = date.getMinutes();
-   console.log(minutesEnd)
-   const timer = minutesEnd - minutesstart
-   console.log('Job finished in : ' + timer);
-}
-*/
 //Get tokens addresses
 server.use('/api', async (req, res) => {
     try {
@@ -96,12 +46,11 @@ server.get('/promises', async (req, res) => {
   let chunkLenght = 50; 
   let tokensList = [];
   logs = [];
-  for  (let i=0; i < tokenData.length; i+=chunkLenght) {
+  for  (let i=0; i < tokenData.length - 4000; i+=chunkLenght) {
     console.log('i:' + i)
     console.log('chunck lenght' + chunkLenght)
     let chunk = tokenData.slice(i, i + chunkLenght);
-    console.log('довжина запиту :' + chunk.length);
-    
+    console.log('довжина запиту :' + chunk.length);    
     let tokenspromises = []
     for (let token of chunk) {    
       const contract = new web3.eth.Contract(minABI, token.eth);
@@ -153,6 +102,8 @@ server.get('/tokens', async (req, res) => {
      console.log(tokensList)
      res.end();       
 });
+
+
 //get data from transactions
 server.get('/transactions', async (req, res) => {
   let logs, chunks;
@@ -206,22 +157,35 @@ server.get('/coins', async (req, res) => {
   res.end();
 });
 //trying to get JSON rpc request
-server.get('/rpc', (req, res) => {
-  const batch = new web3.BatchRequest();
+server.get('/rpc', async (req, res) => {
   tokens = [
     {"eth":"0xd031edafac6a6ae5425e77f936022e506444c242","name":"HERUKA TSANGNYON"},
     {"eth":"0x2b591e99afe9f32eaa6214f7b7629768c40eeb39","name":"HEX"},
     {"eth":"0xf3a2ace8e48751c965ea0a1d064303aca53842b9","name":"HXY Money"},
     {"eth":"0xe61f6e39711cec14f8d6c637c2f4568baa9ff7ee","name":"Hey"},
   ]
-  const contractsBatch = tokens.map(async ({ eth, name }) => {
-    const contract = new web3.eth.Contract(minABI);
-      contract.options.address = eth;
-      batch.add(
-        contract.methods.balanceOf(walletAddress).call(),
-      );
-  })
-  console.log(contractsBatch); 
+  const contractsBatch = (tokens) => {
+    const batch = new web3.BatchRequest();
+    tokens.map(async ({ eth, name }) => {      
+      const contract = new web3.eth.Contract(minABI);
+        contract.options.address = eth;
+        batch.add(contract.methods.balanceOf(walletAddress).call.request({}, blockNumber));
+    })
+    return batch;
+  } 
+  const main = async () => {
+    const batch = contractsBatch(tokens);
+    const tokenBalances = {};
+    const  response  = await batch.execute();
+    /*
+    response.forEach(({ _hex }, index) => {
+      const { name, decimals, symbol } = tokens[index];
+      tokenBalances[name] = `${convertToNumber(_hex, decimals)} ${symbol}`;
+    });
+    */
+    console.log(response);
+  };
+  main();
 
 })
 
